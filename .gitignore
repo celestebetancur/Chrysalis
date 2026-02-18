@@ -1,0 +1,13 @@
+chuck/
+build/
+dist/
+dep/
+plugin.so
+plugin.dylib
+plugin.dll
+*.d
+*.o
+build.log
+.DS_Store
+.vscode/
+compile_commands.json
