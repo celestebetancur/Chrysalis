@@ -9,7 +9,17 @@ CXXFLAGS +=
 # ChucK flags
 CHUCK_SRC_DIR = chuck/src/core
 FLAGS += -I$(CHUCK_SRC_DIR) -I$(CHUCK_SRC_DIR)/lo
-FLAGS += -D__PLATFORM_LINUX__ -D__DISABLE_MIDI__ -D__DISABLE_HID__ -D__ALTER_HID__ -D__DISABLE_SERIAL__ -D__DISABLE_OTF_SERVER__ -D__DISABLE_WATCHDOG__ -D__DISABLE_SHELL__
+
+# Platform-specific flags
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	FLAGS += -D__PLATFORM_APPLE__
+else
+	FLAGS += -D__PLATFORM_LINUX__
+endif
+
+# Common flags
+FLAGS += -D__DISABLE_MIDI__ -D__DISABLE_HID__ -D__ALTER_HID__ -D__DISABLE_SERIAL__ -D__DISABLE_OTF_SERVER__ -D__DISABLE_WATCHDOG__ -D__DISABLE_SHELL__
 
 # ChucK sources
 SOURCES += $(CHUCK_SRC_DIR)/chuck.cpp \
