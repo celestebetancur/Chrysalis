@@ -49,20 +49,18 @@ struct Chrysalis : Module {
     configParam(KNOB_2, 0.f, 1.f, 0.f, "Knob 2");
     configParam(KNOB_3, 0.f, 1.f, 0.f, "Knob 3");
     configParam(KNOB_4, 0.f, 1.f, 0.f, "Knob 4");
-    configInput(INPUT_1, "adc 1");
-    configInput(INPUT_2, "adc 2");
-    configInput(INPUT_3, "adc 3");
-    configInput(INPUT_4, "adc 4");
-    configOutput(OUTPUT_1, "dac 1");
-    configOutput(OUTPUT_2, "dac 2");
-    configOutput(OUTPUT_3, "dac 3");
-    configOutput(OUTPUT_4, "dac 4");
+    configInput(INPUT_1, "adc 0");
+    configInput(INPUT_2, "adc 1");
+    configInput(INPUT_3, "adc 2");
+    configInput(INPUT_4, "adc 3");
+    configOutput(OUTPUT_1, "dac 0");
+    configOutput(OUTPUT_2, "dac 1");
+    configOutput(OUTPUT_3, "dac 2");
+    configOutput(OUTPUT_4, "dac 3");
 
     // Initialize ChucK
     initChucK();
 
-    // Autoload TODO: Make this save in the main patch, this is just in case the
-    // patch has no previous state
     std::string autoloadPath = asset::plugin(pluginInstance, "autoload.txt");
     FILE *f = fopen(autoloadPath.c_str(), "r");
     if (f) {
@@ -75,16 +73,18 @@ struct Chrysalis : Module {
           path = path.substr(0, last + 1);
         }
         if (!path.empty()) {
-            // Check if path is absolute
-            bool isAbsolute = false;
-            if (path.size() > 0 && path[0] == '/') isAbsolute = true;
-            #ifdef _WIN32
-            if (path.size() > 1 && path[1] == ':') isAbsolute = true;
-            #endif
+          // Check if path is absolute
+          bool isAbsolute = false;
+          if (path.size() > 0 && path[0] == '/')
+            isAbsolute = true;
+#ifdef _WIN32
+          if (path.size() > 1 && path[1] == ':')
+            isAbsolute = true;
+#endif
 
-            if (!isAbsolute) {
-                path = asset::plugin(pluginInstance, path);
-            }
+          if (!isAbsolute) {
+            path = asset::plugin(pluginInstance, path);
+          }
           loadFile(path);
         }
       }
@@ -125,7 +125,7 @@ struct Chrysalis : Module {
   }
 
   void cleanupChucK() {
-    DEBUG_LOG("Cleaning up ChucK instance...");
+    // DEBUG_LOG("Cleaning up ChucK instance...");
     chuckReady = false;
     if (the_chuck) {
       CK_SAFE_DELETE(the_chuck);
