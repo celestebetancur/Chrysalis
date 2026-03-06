@@ -4,6 +4,8 @@
 // Chrysalis_3
 // Chrysalis_4
 
+// @import "YourChugin.chug"; // absolute path for your chugins
+
 global float Chrysalis_1;
 
 // The ChucK code
