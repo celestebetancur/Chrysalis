@@ -16,13 +16,16 @@ include $(RACK_DIR)/arch.mk
 ifdef ARCH_WIN
 	FLAGS += -D__PLATFORM_WINDOWS__ -D_cdecl=__cdecl -UUNICODE -U_UNICODE -include string.h -include stdint.h -include src/fwd_sockaddr.h
 	FLAGS += -DHAVE_WIN32_THREADS -D__WINDOWS_DS__ -D__WINDOWS_SOCK__ -DWIN32 -DHAVE_SSIZE_T -Wno-int-conversion -Wno-error=int-conversion
+	FLAGS += -fno-strict-aliasing
 	LDFLAGS += -lws2_32 -liphlpapi
 endif
 ifdef ARCH_LIN
 	FLAGS += -D__PLATFORM_LINUX__
+	FLAGS += -fpermissive -fno-strict-aliasing
 endif
 ifdef ARCH_MAC
-	FLAGS += -D__PLATFORM_APPLE__
+	FLAGS += -D__PLATFORM_APPLE__ -D__MACOSX_CORE__
+	FLAGS += -fno-strict-aliasing
 endif
 
 # ChucK sources
