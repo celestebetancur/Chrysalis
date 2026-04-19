@@ -49,18 +49,20 @@ struct Chrysalis : Module {
     configParam(KNOB_2, 0.f, 1.f, 0.f, "Knob 2");
     configParam(KNOB_3, 0.f, 1.f, 0.f, "Knob 3");
     configParam(KNOB_4, 0.f, 1.f, 0.f, "Knob 4");
-    configInput(INPUT_1, "adc 0");
-    configInput(INPUT_2, "adc 1");
-    configInput(INPUT_3, "adc 2");
-    configInput(INPUT_4, "adc 3");
-    configOutput(OUTPUT_1, "dac 0");
-    configOutput(OUTPUT_2, "dac 1");
-    configOutput(OUTPUT_3, "dac 2");
-    configOutput(OUTPUT_4, "dac 3");
+    configInput(INPUT_1, "adc 1");
+    configInput(INPUT_2, "adc 2");
+    configInput(INPUT_3, "adc 3");
+    configInput(INPUT_4, "adc 4");
+    configOutput(OUTPUT_1, "dac 1");
+    configOutput(OUTPUT_2, "dac 2");
+    configOutput(OUTPUT_3, "dac 3");
+    configOutput(OUTPUT_4, "dac 4");
 
     // Initialize ChucK
     initChucK();
 
+    // Autoload TODO: Make this save in the main patch, this is just in case the
+    // patch has no previous state
     std::string autoloadPath = asset::plugin(pluginInstance, "autoload.txt");
     FILE *f = fopen(autoloadPath.c_str(), "r");
     if (f) {
@@ -94,6 +96,12 @@ struct Chrysalis : Module {
 
   ~Chrysalis() { cleanupChucK(); }
 
+  void onSampleRateChange(const SampleRateChangeEvent &e) override {
+    if (the_chuck) {
+      the_chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, (int)(e.sampleRate + 0.5f));
+    }
+  }
+
   void initChucK() {
     if (the_chuck)
       cleanupChucK();
@@ -104,6 +112,8 @@ struct Chrysalis : Module {
                         (int)APP->engine->getSampleRate());
     the_chuck->setParam(CHUCK_PARAM_INPUT_CHANNELS, 4);
     the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, 4);
+    the_chuck->setParam(CHUCK_PARAM_IMPORT_PATH_SYSTEM, "~/.chuck/lib/");
+    the_chuck->setParam(CHUCK_PARAM_IMPORT_PATH_PACKAGES, "~/.chuck/lib/");
 
     // Initialize
     the_chuck->init();
@@ -128,12 +138,15 @@ struct Chrysalis : Module {
     // DEBUG_LOG("Cleaning up ChucK instance...");
     chuckReady = false;
     if (the_chuck) {
+      if (the_chuck->vm()) {
+        the_chuck->vm()->stop();
+      }
       CK_SAFE_DELETE(the_chuck);
     }
     if (inBuffer)
-      delete[] inBuffer;
+      CK_SAFE_DELETE(inBuffer);
     if (outBuffer)
-      delete[] outBuffer;
+      CK_SAFE_DELETE(outBuffer);
     inBuffer = nullptr;
     outBuffer = nullptr;
   }

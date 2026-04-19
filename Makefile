@@ -8,7 +8,7 @@ CXXFLAGS +=
 
 # ChucK flags
 CHUCK_SRC_DIR = chuck/src/core
-FLAGS += -I$(CHUCK_SRC_DIR) -I$(CHUCK_SRC_DIR)/lo
+FLAGS += -I$(CHUCK_SRC_DIR) -I$(CHUCK_SRC_DIR)/lo -fno-strict-aliasing
 FLAGS += -D__DISABLE_MIDI__ -D__DISABLE_HID__ -D__ALTER_HID__ -D__DISABLE_SERIAL__ -D__DISABLE_OTF_SERVER__ -D__DISABLE_WATCHDOG__ -D__DISABLE_SHELL__
 
 include $(RACK_DIR)/arch.mk
@@ -16,16 +16,14 @@ include $(RACK_DIR)/arch.mk
 ifdef ARCH_WIN
 	FLAGS += -D__PLATFORM_WINDOWS__ -D_cdecl=__cdecl -UUNICODE -U_UNICODE -include string.h -include stdint.h -include src/fwd_sockaddr.h
 	FLAGS += -DHAVE_WIN32_THREADS -D__WINDOWS_DS__ -D__WINDOWS_SOCK__ -DWIN32 -DHAVE_SSIZE_T -Wno-int-conversion -Wno-error=int-conversion
-	FLAGS += -fno-strict-aliasing
 	LDFLAGS += -lws2_32 -liphlpapi
 endif
 ifdef ARCH_LIN
 	FLAGS += -D__PLATFORM_LINUX__
-	FLAGS += -fpermissive -fno-strict-aliasing
+	FLAGS += -fpermissive
 endif
 ifdef ARCH_MAC
 	FLAGS += -D__PLATFORM_APPLE__ -D__MACOSX_CORE__
-	FLAGS += -fno-strict-aliasing
 endif
 
 # ChucK sources
