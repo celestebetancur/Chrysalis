@@ -99,6 +99,22 @@ struct Chrysalis : Module {
 
   ~Chrysalis() { cleanupChucK(); }
 
+  json_t *dataToJson() override {
+    json_t *rootJ = json_object();
+    json_object_set_new(rootJ, "path", json_string(currentFilePath.c_str()));
+    return rootJ;
+  }
+
+  void dataFromJson(json_t *rootJ) override {
+    json_t *pathJ = json_object_get(rootJ, "path");
+    if (pathJ) {
+      std::string path = json_string_value(pathJ);
+      if (!path.empty()) {
+        loadFile(path);
+      }
+    }
+  }
+
   void onSampleRateChange(const SampleRateChangeEvent &e) override {
     if (the_chuck) {
       the_chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, (int)(e.sampleRate + 0.5f));
