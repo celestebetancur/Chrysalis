@@ -1,7 +1,9 @@
 #include "chuck_globals.h"
 #include "plugin.hpp"
+#include <atomic>
 #include <chuck.h>
 #include <iostream>
+#include <mutex>
 #include <osdialog.h>
 
 using namespace rack;
@@ -9,31 +11,18 @@ using namespace rack;
 #define DEBUG_LOG(format, ...)                                                 \
   fprintf(stderr, "[Chrysalis] " format "\n", ##__VA_ARGS__)
 
-std::string compilationError = "";
+thread_local struct Chrysalis *current_chrysalis = nullptr;
 
-// TODO: Make this local to each Chrystalis
-void my_chout_cb(const char *msg) {
-  // DEBUG_LOG("[chout] %s", msg);
-  compilationError = msg;
-}
-void my_cherr_cb(const char *msg) {
-  // DEBUG_LOG("[cherr] %s", msg);
-  compilationError = msg;
-}
-void my_stdout_cb(const char *msg) {
-  // DEBUG_LOG("[stdout] %s", msg);
-  compilationError = msg;
-}
-void my_stderr_cb(const char *msg) {
-  // DEBUG_LOG("[stderr] %s", msg);
-  compilationError = msg;
-}
+void my_chout_cb(const char *msg);
+void my_cherr_cb(const char *msg);
+void my_stdout_cb(const char *msg);
+void my_stderr_cb(const char *msg);
 
 struct Chrysalis : Module {
   enum ParamId { KNOB_1, KNOB_2, KNOB_3, KNOB_4, PARAMS_LEN };
   enum InputId { INPUT_1, INPUT_2, INPUT_3, INPUT_4, INPUTS_LEN };
   enum OutputId { OUTPUT_1, OUTPUT_2, OUTPUT_3, OUTPUT_4, OUTPUTS_LEN };
-  enum LightId { LIGHTS_LEN };
+  enum LightId { COMPILE_LIGHT_GREEN, COMPILE_LIGHT_RED, LIGHTS_LEN };
 
   ::ChucK *the_chuck = nullptr;
   std::string currentFilePath = "";
@@ -42,6 +31,20 @@ struct Chrysalis : Module {
   // Audio buffers for ChucK
   float *inBuffer = nullptr;
   float *outBuffer = nullptr;
+
+  std::mutex errorMutex;
+  std::string compilationError = "";
+  std::atomic<bool> compileFailed{false};
+
+  void setCompilationError(const char *msg) {
+    std::lock_guard<std::mutex> lock(errorMutex);
+    compilationError = msg;
+  }
+
+  std::string getCompilationError() {
+    std::lock_guard<std::mutex> lock(errorMutex);
+    return compilationError;
+  }
 
   Chrysalis() {
     config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -161,7 +164,14 @@ struct Chrysalis : Module {
     inBuffer[2] = inputs[INPUT_3].getVoltage() / 5.0f;
     inBuffer[3] = inputs[INPUT_4].getVoltage() / 5.0f;
 
+    current_chrysalis = this;
     the_chuck->run(inBuffer, outBuffer, 1);
+    current_chrysalis = nullptr;
+
+    bool hasErr = compileFailed.load(std::memory_order_relaxed);
+    lights[COMPILE_LIGHT_GREEN].setBrightness(
+        (!hasErr && !currentFilePath.empty()) ? 1.f : 0.f);
+    lights[COMPILE_LIGHT_RED].setBrightness(hasErr ? 1.f : 0.f);
 
     outputs[OUTPUT_1].setVoltage(clamp(outBuffer[0] * 1.0f, -10.0f, 10.0f));
     outputs[OUTPUT_2].setVoltage(clamp(outBuffer[1] * 1.0f, -10.0f, 10.0f));
@@ -183,19 +193,31 @@ struct Chrysalis : Module {
     if (!chuckReady)
       return;
 
+    current_chrysalis = this;
     the_chuck->removeAllShreds();
     currentFilePath = path;
-    the_chuck->compileFile(path, "", 1);
-    compilationError = "";
+    setCompilationError("");
+    bool success = the_chuck->compileFile(path, "", 1);
+    compileFailed.store(!success, std::memory_order_relaxed);
+    if (success) {
+      setCompilationError("Compiled successfully");
+    }
+    current_chrysalis = nullptr;
   }
 
   void reloadFile() {
     if (!chuckReady)
       return;
 
+    current_chrysalis = this;
     the_chuck->removeAllShreds();
-    the_chuck->compileFile(currentFilePath, "", 1);
-    compilationError = "";
+    setCompilationError("");
+    bool success = the_chuck->compileFile(currentFilePath, "", 1);
+    compileFailed.store(!success, std::memory_order_relaxed);
+    if (success) {
+      setCompilationError("Compiled successfully");
+    }
+    current_chrysalis = nullptr;
   }
 };
 
@@ -276,10 +298,13 @@ struct ChucKWidget : ModuleWidget {
     StatusLabel *statusLbl = createWidget<StatusLabel>(Vec(5, 80));
     statusLbl->text = "Status: ...";
     statusLbl->fontSize = 8.0f;
-    statusLbl->box.size = Vec(box.size.x - 20, 15);
+    statusLbl->box.size = Vec(box.size.x - 30, 15);
     statusLbl->module = module;
     statusLbl->color = nvgRGB(0x88, 0x88, 0x88);
     addChild(statusLbl);
+
+    addChild(createLightCentered<MediumLight<GreenRedLight>>(
+        Vec(box.size.x - 23, 46), module, Chrysalis::COMPILE_LIGHT_GREEN));
   }
 
   struct LoadButton : Button {
@@ -329,9 +354,9 @@ struct ChucKWidget : ModuleWidget {
         t_CKTIME now = module->the_chuck->now();
         t_CKUINT shredID = module->the_chuck->vm()->last_id();
 
-        char buf[128];
+        char buf[512];
         snprintf(buf, sizeof(buf), "Now: %.2f \nShred ID: %zu \n[ChucK] %s",
-                 now, shredID, compilationError.data());
+                 now, shredID, module->getCompilationError().c_str());
         text = buf;
       } else {
         text = "VM Not Ready";
@@ -339,5 +364,22 @@ struct ChucKWidget : ModuleWidget {
     }
   };
 };
+
+void my_chout_cb(const char *msg) {
+  if (current_chrysalis)
+    current_chrysalis->setCompilationError(msg);
+}
+void my_cherr_cb(const char *msg) {
+  if (current_chrysalis)
+    current_chrysalis->setCompilationError(msg);
+}
+void my_stdout_cb(const char *msg) {
+  if (current_chrysalis)
+    current_chrysalis->setCompilationError(msg);
+}
+void my_stderr_cb(const char *msg) {
+  if (current_chrysalis)
+    current_chrysalis->setCompilationError(msg);
+}
 
 Model *modelChrysalis = createModel<Chrysalis, ChucKWidget>("Chrysalis");
