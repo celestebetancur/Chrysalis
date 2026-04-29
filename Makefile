@@ -17,6 +17,7 @@ ifdef ARCH_WIN
 	FLAGS += -D__PLATFORM_WINDOWS__ -D_cdecl=__cdecl -UUNICODE -U_UNICODE -include string.h -include stdint.h -include src/fwd_sockaddr.h
 	FLAGS += -DHAVE_WIN32_THREADS -D__WINDOWS_DS__ -D__WINDOWS_SOCK__ -DWIN32 -DHAVE_SSIZE_T -Wno-int-conversion -Wno-error=int-conversion
 	LDFLAGS += -lws2_32 -liphlpapi
+	LDFLAGS += -Wl,--export-all-symbols
 endif
 ifdef ARCH_LIN
 	FLAGS += -D__PLATFORM_LINUX__
@@ -84,6 +85,7 @@ SOURCES += $(CHUCK_SRC_DIR)/chuck.cpp \
 	$(CHUCK_SRC_DIR)/lo/server_thread.c \
 	$(CHUCK_SRC_DIR)/lo/timetag.c
 
+ifndef ARCH_WIN
 # Tools
 LEX=flex
 YACC=bison
@@ -107,6 +109,9 @@ $(CHUCK_SRC_DIR)/chuck_yacc.h: $(CHUCK_SRC_DIR)/chuck.tab.h
 # Add generated files to clean
 clean_generated:
 	rm -f $(CHUCK_SRC_DIR)/chuck.tab.c $(CHUCK_SRC_DIR)/chuck.tab.h $(CHUCK_SRC_DIR)/chuck.yy.c $(CHUCK_SRC_DIR)/chuck.output
+else
+clean_generated:
+endif
 
 clean: clean_generated
 
