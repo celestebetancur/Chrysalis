@@ -8,7 +8,7 @@ CXXFLAGS +=
 
 # ChucK flags
 CHUCK_SRC_DIR = chuck/src/core
-FLAGS += -I$(CHUCK_SRC_DIR) -I$(CHUCK_SRC_DIR)/lo -fno-strict-aliasing
+FLAGS += -I$(CHUCK_SRC_DIR) -I$(CHUCK_SRC_DIR)/lo -iquote $(CHUCK_SRC_DIR) -fno-strict-aliasing
 FLAGS += -D__DISABLE_MIDI__ -D__DISABLE_HID__ -D__ALTER_HID__ -D__DISABLE_SERIAL__ -D__DISABLE_OTF_SERVER__ -D__DISABLE_WATCHDOG__ -D__DISABLE_SHELL__
 
 include $(RACK_DIR)/arch.mk
@@ -110,6 +110,12 @@ $(CHUCK_SRC_DIR)/chuck_yacc.h: $(CHUCK_SRC_DIR)/chuck.tab.h
 clean_generated:
 	rm -f $(CHUCK_SRC_DIR)/chuck.tab.c $(CHUCK_SRC_DIR)/chuck.tab.h $(CHUCK_SRC_DIR)/chuck.yy.c $(CHUCK_SRC_DIR)/chuck.output
 else
+# For Windows cross-compilation, chuck_yacc.c is pre-generated but chuck.tab.h
+# must also be present (it's #included via #line-adjusted paths inside chuck_yacc.c).
+# Ensure chuck_yacc.h (= chuck.tab.h) exists so the pre-built chuck_yacc.c compiles.
+$(CHUCK_SRC_DIR)/chuck_yacc.h: $(CHUCK_SRC_DIR)/chuck.tab.h
+	cat $(CHUCK_SRC_DIR)/chuck.tab.h > $@
+
 clean_generated:
 endif
 
